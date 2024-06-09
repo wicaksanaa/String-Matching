@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;700&display=swap">
+    <title>String Matching - Visualization</title>
+    <style>
+        body, html {
+            font-family: 'Quicksand';
+            padding: 0;
+            margin: 0;
+            background: #f4f4f4;
+            text-align: center;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        input[type="text"] {
+            padding: 10px;
+            width: 300px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        .canvas-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .canvas-item {
+            margin: 20px 0;
+        }
+        canvas {
+            border: 1px solid #ddd; 
+            background-color: #fff; 
+        }
+        #resultBF, #resultDC {
+            margin-top: 20px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>String Matching</h1>
+        <input type="text" id="inputText" placeholder="Enter text">
+        <input type="text" id="inputPattern" placeholder="Enter pattern">
+        <button onclick="findStringMatch()">Find Pattern</button>
+        <br>
+        <hr style="width: 60%;">
+        <br>
+        <h2>Visualisasi Brute Force</h2>
+        <canvas id="matchingCanvasBF" width="1000" height="60"></canvas>
+        <br>
+        <hr style="width: 60%;">
+        <br>
+        <h2>Visualisasi Divide and Conquer</h2>
+        <div id="canvasContainerDC" class="canvas-container"></div>
+        <div id="resultBF"></div>
+        <div id="resultDC"></div>
+    </div>
+    <script>
+        function findStringMatch() {
+            let inputText = document.getElementById('inputText').value;
+            let inputPattern = document.getElementById('inputPattern').value;
+            if (!/^[a-zA-Z\s]+$/.test(inputText) || !/^[a-zA-Z\s]+$/.test(inputPattern)) { // Validates that the input contains only alphabetic characters and spaces
+                alert("Hanya menerima input berupa string.");
+                return;
+            }
+            clearCanvas('matchingCanvasBF');
+            clearCanvasContainer('canvasContainerDC');
+
+            // Brute Force
+            const startBF = performance.now();
+            let resultBF = naiveStringMatch(inputText, inputPattern);
+            const endBF = performance.now();
+            const timeBF = endBF - startBF;
+
+            // Divide and Conquer
+            const startDC = performance.now();
+            let resultDC = divideAndConquerMatch(inputText, inputPattern, document.getElementById('canvasContainerDC'));
+            const endDC = performance.now();
+            const timeDC = endDC - startDC;
+
+            // Display results
+            document.getElementById('resultBF').innerHTML = `Brute Force - Matches: ${resultBF.length} (Time: ${timeBF.toFixed(2)} ms)`;
+            document.getElementById('resultDC').innerHTML = `Divide and Conquer - Matches: ${resultDC} (Time: ${timeDC.toFixed(2)} ms)`;
+        }
+
+        function clearCanvas(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function clearCanvasContainer(containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+        }
+
+        function naiveStringMatch(text, pattern) {
+            const canvas = document.getElementById('matchingCanvasBF');
+            const ctx = canvas.getContext('2d');
+            const charWidth = canvas.width / text.length;
+            let matches = [];
+            for (let i = 0; i <= text.length - pattern.length; i++) {
+                let match = true;
+                for (let j = 0; j < pattern.length; j++) {
+                    if (text[i + j] !== pattern[j]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    matches.push(i);
+                    drawRectangle(ctx, i, i + pattern.length - 1, charWidth, 'lightgreen', text.substring(i, i + pattern.length));
+                } else {
+                    drawRectangle(ctx, i, i + pattern.length - 1, charWidth, 'white', text.substring(i, i + pattern.length));
+                }
+            }
+            return matches;
+        }
+
+        function drawRectangle(ctx, start, end, charWidth, color, text) {
+            ctx.fillStyle = color;
+            ctx.fillRect(start * charWidth, 0, (end - start + 1) * charWidth, 50);
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(start * charWidth, 0, (end - start + 1) * charWidth, 50);
+            ctx.fillStyle = 'black';
+            ctx.fillText(text, start * charWidth + 5, 25, (end - start + 1) * charWidth);
+        }
+
+        function divideAndConquerMatch(text, pattern, container) {
+            let matches = 0;
+            let levelHasSingleCharNodes = {}; // Object to track if all nodes at each level are single character nodes
+            let charNodes = [];
+            let lastCharNodes = []; // Variabel untuk menyimpan hasil akhir
+            let lastlevel = 0;
+        
+            function divideAndMatch(start, end, level) {
+                if (start > end) return;
+        
+                // Initialize the level in the object if not already initialized
+                if (!(level in levelHasSingleCharNodes)) {
+                    levelHasSingleCharNodes[level] = true; // Assume true until proven otherwise
+                }
+        
+                const substring = text.substring(start, end + 1);
+        
+                if (substring.length > 1) {
+                    if (substring === pattern) {
+                        matches++;
+                        drawNode(container, start, end, text, pattern, true, level);
+                    } else {
+                        drawNode(container, start, end, text, pattern, false, level);
+                        if (end - start >= 1) {
+                            const mid = Math.floor((start + end) / 2);
+                            divideAndMatch(start, mid, level + 1);
+                            divideAndMatch(mid + 1, end, level + 1);
+                        }
+                    }
+                } else if (substring.length == 1) {
+                    // masukkan substring ke dalam charNodes
+                    charNodes.push(substring);
+                    drawNode(container, start, end, text, pattern, false, level);
+                }
+                
+                // Check if the current node is not a single character node
+                if (substring.length !== 1) {
+                    levelHasSingleCharNodes[level] = false; // Set to false if any node is not a single character node
+                }
+
+                lastlevel = Math.max(lastlevel, level);
+                
+                if (levelHasSingleCharNodes[level] === true) {
+                    return;
+                }
+                
+                lastCharNodes = [...charNodes]; // Simpan hasil terakhir
+                // Process each character individually if it's not already a single character node
+                if (substring.length === 1) {
+                    for (let i = start; i <= end; i++) {
+                        drawNode(container, i, i, text, pattern, false, level + 1);
+                    }
+                }
+            }
+        
+            divideAndMatch(0, text.length - 1, 0);
+        
+            // Cetak hasil terakhir
+            console.log(lastCharNodes);
+
+            for (let i = 0; i <= lastCharNodes.length - pattern.length; i++) {
+                let match = true;
+                for (let j = 0; j < pattern.length; j++) {
+                    if (lastCharNodes[i + j] !== pattern[j]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    matches++;
+                    console.log(lastlevel);
+                    drawNode(container, 0, pattern.length, pattern, pattern, true, lastlevel+1);
+                }
+            }
+            
+        
+            return matches;
+        }
+        
+        
+        
+
+        function drawNode(container, start, end, text, pattern, isMatch, level) {
+            const node = document.createElement('div');
+            node.style.border = '1px solid black';
+            node.style.backgroundColor = isMatch ? 'lightgreen' : 'white';
+            node.style.margin = '10px';
+            node.style.padding = '10px';
+            node.innerHTML = `${text.substring(start, end + 1)}`;
+            node.style.display = 'inline-block';
+
+            if (container.children.length <= level) {
+                const levelContainer = document.createElement('div');
+                levelContainer.className = 'canvas-item';
+                container.appendChild(levelContainer);
+            }
+            container.children[level].appendChild(node);
+        }
+    </script>
+</body>
+</html>
